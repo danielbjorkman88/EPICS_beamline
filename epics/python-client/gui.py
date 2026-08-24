@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 import pyvista as pv
 from pyvistaqt import QtInteractor
+import numpy as np
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -292,7 +293,7 @@ class BeamlineGUI(QWidget):
             )
 
 
-        # =========================
+    # =========================
     # 3D Plot
     # =========================
 
@@ -306,48 +307,53 @@ class BeamlineGUI(QWidget):
 
 
         # =================================================
+        # Parameters
+        # =================================================
+
+        beam_length = 50
+        quadrupole_x = 15
+        quadrupole_length = 10
+
+        pipe_radius = 12
+
+        # Quadrupole field gradient
+        # Arbitrary units for visualization
+        gradient = 1.0
+
+
+        # =================================================
         # Beam pipe
         # =================================================
 
         pipe = pv.Cylinder(
             center=(12.5, 0, 0),
             direction=(1, 0, 0),
-            radius=12,
-            height=50,
+            radius=pipe_radius,
+            height=beam_length,
             resolution=64,
         )
 
         self.plotter.add_mesh(
             pipe,
             color="lightgray",
-            opacity=0.20,
+            opacity=0.15,
             smooth_shading=True,
         )
 
 
         # =================================================
-        # Quadrupole magnet
+        # Quadrupole poles
         # =================================================
 
-        quadrupole_length = 10
         pole_radius = 4
         pole_distance = 6
 
-
-        # Four quadrupole poles
-        #
-        # The poles are arranged around the beam axis.
-        #
-        # X = beam direction
-        # Y/Z = transverse plane
-
         pole_positions = [
-            (15,  pole_distance, 0),
-            (15, -pole_distance, 0),
-            (15, 0,  pole_distance),
-            (15, 0, -pole_distance),
+            (quadrupole_x,  pole_distance, 0),
+            (quadrupole_x, -pole_distance, 0),
+            (quadrupole_x, 0,  pole_distance),
+            (quadrupole_x, 0, -pole_distance),
         ]
-
 
         for center in pole_positions:
 
@@ -361,10 +367,107 @@ class BeamlineGUI(QWidget):
 
             self.plotter.add_mesh(
                 pole,
-                color="silver",
-                opacity=0.9,
+                color="gray",
+                opacity=0.65,
                 smooth_shading=True,
             )
+
+
+        # =================================================
+        # Quadrupole magnetic field
+        # =================================================
+
+        # Field grid in the transverse Y-Z plane.
+        #
+        # Beam direction = X
+        #
+        # B_y = G * Z
+        # B_z = G * Y
+
+        # Dense transverse grid
+        y_values = np.linspace(
+            -5,
+            5,
+            11,
+        )
+
+        z_values = np.linspace(
+            -5,
+            5,
+            11,
+        )
+
+
+        # Several slices along the magnet
+        x_values = np.linspace(
+            quadrupole_x - 4,
+            quadrupole_x + 4,
+            7,
+        )
+
+        points = []
+        vectors = []
+        magnitudes = []
+
+        for x in x_values:
+
+            for y in y_values:
+
+                for z in z_values:
+
+                    # Ideal quadrupole field
+                    By = gradient * z
+                    Bz = gradient * y
+
+                    Bx = 0.0
+
+                    magnitude = (
+                        By**2 +
+                        Bz**2
+                    ) ** 0.5
+
+                    points.append(
+                        [x, y, z]
+                    )
+
+                    vectors.append(
+                        [Bx, By, Bz]
+                    )
+
+                    magnitudes.append(
+                        magnitude
+                    )
+
+
+        # Create point cloud
+        field = pv.PolyData(points)
+
+        field["B"] = vectors
+        field["B_mag"] = magnitudes
+
+
+        # =================================================
+        # Create arrows
+        # =================================================
+
+        arrows = field.glyph(
+            orient="B",
+            scale="B",
+            factor=0.8,
+        )
+
+
+        # Colour arrows according to field magnitude
+        self.plotter.add_mesh(
+            arrows,
+            scalars="B_mag",
+            cmap="plasma",
+            show_scalar_bar=True,
+            scalar_bar_args={
+                "title": "|B|  (arb. units)",
+                "color": "white",
+            },
+        )
 
 
         # =================================================
@@ -391,14 +494,9 @@ class BeamlineGUI(QWidget):
 
             points = []
 
-            for index, (
-                position,
-                counts
-            ) in enumerate(
-                zip(
-                    self.positions,
-                    self.counts,
-                )
+            for position, counts in zip(
+                self.positions,
+                self.counts,
             ):
 
                 # Scale detector counts for visualization
@@ -414,7 +512,6 @@ class BeamlineGUI(QWidget):
 
 
             mesh = pv.PolyData(points)
-
 
             self.plotter.add_mesh(
                 mesh,

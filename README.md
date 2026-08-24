@@ -1,1 +1,1 @@
-![Screenshot](gui1.png)
+![Screenshot](gui2.png)
