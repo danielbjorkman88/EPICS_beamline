@@ -36,6 +36,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 
+
+
 # =========================
 # EPICS PVs
 # =========================
@@ -181,7 +183,16 @@ class BeamlineGUI(QWidget):
 
 
         # =========================
-        # Plot
+        # Plots
+        # =========================
+
+        plot_splitter = QSplitter(
+            Qt.Horizontal
+        )
+
+
+        # =========================
+        # 2D Matplotlib plot
         # =========================
 
         self.figure = Figure()
@@ -206,8 +217,36 @@ class BeamlineGUI(QWidget):
 
         self.ax.grid(True)
 
-        layout.addWidget(
+        plot_splitter.addWidget(
             self.canvas
+        )
+
+
+        # =========================
+        # 3D PyVista plot
+        # =========================
+
+        self.plotter = QtInteractor(
+            self
+        )
+
+        self.plotter.set_background(
+            "white"
+        )
+
+        plot_splitter.addWidget(
+            self.plotter
+        )
+
+
+        # Give the two plots equal space
+
+        plot_splitter.setSizes(
+            [300, 300]
+        )
+
+        layout.addWidget(
+            plot_splitter
         )
 
 
@@ -253,6 +292,182 @@ class BeamlineGUI(QWidget):
             )
 
 
+        # =========================
+    # 3D Plot
+    # =========================
+
+    def update_3d_plot(self):
+
+        # Clear previous scene
+        self.plotter.clear()
+
+        # Black background
+        self.plotter.set_background("black")
+
+
+        # =================================================
+        # Beam pipe
+        # =================================================
+
+        pipe = pv.Cylinder(
+            center=(12.5, 0, 0),
+            direction=(1, 0, 0),
+            radius=12,
+            height=50,
+            resolution=64,
+        )
+
+        self.plotter.add_mesh(
+            pipe,
+            color="lightgray",
+            opacity=0.20,
+            smooth_shading=True,
+        )
+
+
+        # =================================================
+        # Quadrupole magnet
+        # =================================================
+
+        quadrupole_length = 10
+        pole_radius = 4
+        pole_distance = 6
+
+
+        # Four quadrupole poles
+        #
+        # The poles are arranged around the beam axis.
+        #
+        # X = beam direction
+        # Y/Z = transverse plane
+
+        pole_positions = [
+            (15,  pole_distance, 0),
+            (15, -pole_distance, 0),
+            (15, 0,  pole_distance),
+            (15, 0, -pole_distance),
+        ]
+
+
+        for center in pole_positions:
+
+            pole = pv.Cylinder(
+                center=center,
+                direction=(1, 0, 0),
+                radius=pole_radius,
+                height=quadrupole_length,
+                resolution=32,
+            )
+
+            self.plotter.add_mesh(
+                pole,
+                color="silver",
+                opacity=0.9,
+                smooth_shading=True,
+            )
+
+
+        # =================================================
+        # Beam axis
+        # =================================================
+
+        beam = pv.Line(
+            pointa=(-10, 0, 0),
+            pointb=(40, 0, 0),
+        )
+
+        self.plotter.add_mesh(
+            beam,
+            color="yellow",
+            line_width=3,
+        )
+
+
+        # =================================================
+        # Measured scan points
+        # =================================================
+
+        if self.positions:
+
+            points = []
+
+            for index, (
+                position,
+                counts
+            ) in enumerate(
+                zip(
+                    self.positions,
+                    self.counts,
+                )
+            ):
+
+                # Scale detector counts for visualization
+                z = counts / 100
+
+                points.append(
+                    [
+                        position,
+                        0,
+                        z,
+                    ]
+                )
+
+
+            mesh = pv.PolyData(points)
+
+
+            self.plotter.add_mesh(
+                mesh,
+                color="red",
+                point_size=15,
+                render_points_as_spheres=True,
+            )
+
+
+            # Connect measurements
+
+            if len(points) > 1:
+
+                line = pv.lines_from_points(
+                    points
+                )
+
+                self.plotter.add_mesh(
+                    line,
+                    color="red",
+                    line_width=3,
+                )
+
+
+        # =================================================
+        # Axes
+        # =================================================
+
+        self.plotter.show_bounds(
+            grid="front",
+            location="outer",
+            xtitle="Beam direction (mm)",
+            ytitle="Transverse Y (mm)",
+            ztitle="Transverse Z / signal",
+            color="white",
+        )
+
+        self.plotter.add_axes(
+            line_width=2,
+            color="white",
+        )
+
+
+        # =================================================
+        # Camera
+        # =================================================
+
+        self.plotter.reset_camera()
+
+        self.plotter.render()
+
+    
+    
     # =========================
     # Detector control
     # =========================
@@ -368,7 +583,11 @@ class BeamlineGUI(QWidget):
 
         self.figure.tight_layout()
 
+        self.figure.tight_layout()
+
         self.canvas.draw()
+
+        self.update_3d_plot()
 
 
 # =========================
