@@ -1,0 +1,53 @@
+record(ai, "BEAMLINE:TEMP")
+{
+    field(DESC, "Beamline temperature")
+    field(VAL, "20")
+    field(EGU, "degC")
+    field(HOPR, "30")
+    field(LOPR, "10")
+}
+
+record(ao, "BEAMLINE:MOTOR:POSITION")
+{
+    field(DESC, "Sample motor position")
+    field(VAL, "0")
+    field(EGU, "mm")
+    field(HOPR, "100")
+    field(LOPR, "-100")
+}
+
+record(ao, "BEAMLINE:MOTOR:TARGET")
+{
+    field(DESC, "Sample motor target position")
+    field(VAL, "0")
+    field(EGU, "mm")
+    field(HOPR, "100")
+    field(LOPR, "-100")
+}
+
+record(stringout, "BEAMLINE:MOTOR:STATE")
+{
+    field(DESC, "Sample motor state")
+    field(VAL, "IDLE")
+}
+
+record(bo, "BEAMLINE:DETECTOR:START")
+{
+    field(DESC, "Start detector acquisition")
+    field(VAL, "0")
+}
+
+record(stringout, "BEAMLINE:DETECTOR:STATE")
+{
+    field(DESC, "Detector acquisition state")
+    field(VAL, "IDLE")
+}
+
+record(ai, "BEAMLINE:DETECTOR:COUNTS")
+{
+    field(DESC, "Detector measured counts")
+    field(VAL, "0")
+    field(EGU, "counts")
+    field(HOPR, "100000")
+    field(LOPR, "0")
+}
